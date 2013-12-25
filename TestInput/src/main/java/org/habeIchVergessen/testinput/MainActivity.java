@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     protected GridLayout mOptionWidget;
     protected GridLayout mOptionWidgetGrid;
     protected GridLayout mPhoneWidget;
+    protected RelativeLayout mMenuWidget;
     protected TextView mCallerName;
     protected TextView mCallerNumber;
     protected View mAcceptButton;
@@ -94,6 +95,7 @@ public class MainActivity extends Activity {
         mOptionWidget = (GridLayout)findViewById(R.id.option_widget);
         mOptionWidgetGrid = (GridLayout)findViewById(R.id.option_widget_grid);
         mPhoneWidget = (GridLayout)findViewById(R.id.phone_widget);
+        mMenuWidget =  (RelativeLayout)findViewById(R.id.menu_widget);
         mCallerName = (TextView)findViewById(R.id.caller_name);
         mCallerNumber = (TextView)findViewById(R.id.caller_number);
         mAcceptButton = findViewById(R.id.call_accept_button);
@@ -183,25 +185,20 @@ public class MainActivity extends Activity {
     private boolean onTouchEvent_OptionWidget(MotionEvent motionEvent) {
 
         // point handling
-        MotionEvent.PointerCoords currPointerCoords = new MotionEvent.PointerCoords();
-        MotionEvent.PointerCoords histPointerCoords = new MotionEvent.PointerCoords();
         final int actionIndex = motionEvent.getActionIndex();
         final int actionMasked = motionEvent.getActionMasked();
         final int pointerId = actionIndex;
 
-        Rect containerRect = new Rect();
-        mPhoneWidget.getGlobalVisibleRect(containerRect);
-
-        int delta = 10;
-        Rect hitBox = new Rect(containerRect.centerX() - 3 * delta, containerRect.bottom, containerRect.centerX() + 3 * delta, containerRect.bottom + delta * 3);
-
         switch (actionMasked) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
+                Rect hitBox = new Rect();
+                mMenuWidget.getGlobalVisibleRect(hitBox);
+
                 final float dX = motionEvent.getX(actionIndex);
                 final float dY = motionEvent.getY(actionIndex);
 
-                if (dX >= hitBox.left && dX <= hitBox.right && dY >= hitBox.top && dY <= hitBox.bottom) {
+                if (Math.sqrt(Math.pow(hitBox.centerX() - dX, 2) + Math.pow(hitBox.centerY() - dY, 2)) <= 30) {
                     mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new FloatPoint(dX, dY));
                     openOptionMenu();
                     Log.d(LOG_TAG, "DOWN|POINTER_DOWN: added " + motionEvent.getPointerId(actionIndex) + " x: " + dX + ", y: " + dY + " #" + mOptionMenuTrack.size());
@@ -221,9 +218,7 @@ public class MainActivity extends Activity {
                         View view = mOptionWidgetGrid.getChildAt(idx);
                         view.getGlobalVisibleRect(hitRect);
                         if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
-                            Log.d(LOG_TAG, "check view #" + idx + " (" + view.getId() + ")");
-                            //if (view.hasOnClickListeners())
-                                view.callOnClick();
+                            view.callOnClick();
                         }
                         break;
                     }
