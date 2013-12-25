@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">TestInput</string>
+    <string name="action_settings">Settings</string>
+    <string name="bTest_Label">Test</string>
+    <string name="caller_name">Vorname Name</string>
+    <string name="caller_number">+49 30 1234 5678</string>
+
+</resources>
