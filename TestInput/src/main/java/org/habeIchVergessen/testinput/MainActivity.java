@@ -6,11 +6,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.AnimationDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.CalendarContract;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.Menu;
@@ -188,39 +190,64 @@ public class MainActivity extends Activity {
         final int actionIndex = motionEvent.getActionIndex();
         final int actionMasked = motionEvent.getActionMasked();
         final int pointerId = actionIndex;
+        FloatPoint downPoint = null;
+        double radius = 0;
 
         switch (actionMasked) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
+                // just handle 1 event
+                if (mOptionMenuTrack.size() > 0)
+                    break;
+
                 Rect hitBox = new Rect();
                 mMenuWidget.getGlobalVisibleRect(hitBox);
 
-                final float dX = motionEvent.getX(actionIndex);
-                final float dY = motionEvent.getY(actionIndex);
+                final float dX = motionEvent.getX(actionIndex), rX = 50, cX = hitBox.centerX();
+                final float dY = motionEvent.getY(actionIndex), rY = 30, cY = hitBox.centerY();
 
-                if (Math.sqrt(Math.pow(hitBox.centerX() - dX, 2) + Math.pow(hitBox.centerY() - dY, 2)) <= 30) {
+                // ellipse
+                if (Math.pow(cX - dX, 2) / Math.pow(rX, 2) + Math.pow(cY - dY, 2)  / Math.pow(rY, 2) <= 1) {
                     mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new FloatPoint(dX, dY));
                     openOptionMenu();
                     Log.d(LOG_TAG, "DOWN|POINTER_DOWN: added " + motionEvent.getPointerId(actionIndex) + " x: " + dX + ", y: " + dY + " #" + mOptionMenuTrack.size());
                 }
                 break;
+//            case MotionEvent.ACTION_MOVE:
+//                if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
+//                    // find ImageView at coordinates
+//                    Rect hitRect = new Rect();
+//                    for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
+//                        View view = mOptionWidgetGrid.getChildAt(idx);
+//                        view.getGlobalVisibleRect(hitRect);
+//                        radius = hitRect.centerX() - hitRect.left;
+////                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
+//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
+//                            view.setBackgroundColor(0x80FFFFFF);
+//                        } else
+//                            view.setBackgroundColor(0x00000000);
+//                    }
+//                }
+//                break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
-                FloatPoint downPoint;
                 if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
                     mOptionMenuTrack.remove(motionEvent.getPointerId(actionIndex));
                     closeOptionMenu();
-                    Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size());
+                    Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size() + ", views: #" + mOptionWidgetGrid.getChildCount());
 
                     // find ImageView at coordinates
                     Rect hitRect = new Rect();
                     for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
                         View view = mOptionWidgetGrid.getChildAt(idx);
                         view.getGlobalVisibleRect(hitRect);
-                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
+                        radius = hitRect.centerX() - hitRect.left;
+
+//                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
+                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
                             view.callOnClick();
+                            break;
                         }
-                        break;
                     }
                 }
             break;
@@ -498,7 +525,7 @@ public class MainActivity extends Activity {
         private static View mTrackObj = null;
         private static Point mTrackStartPoint;
 
-        private final static int mHitRectBoost = 50;
+        private final static int mHitRectBoost = 20;
 
         public static boolean pointerInRect(MotionEvent.PointerCoords pointer, View view) {
             return pointerInRect(pointer, view, mHitRectBoost);
@@ -507,9 +534,14 @@ public class MainActivity extends Activity {
         public static boolean pointerInRect(MotionEvent.PointerCoords pointer, View view, int hitRectBoost) {
             Rect rect = new Rect();
             view.getGlobalVisibleRect(rect);
+            // circle through corners
+            //double radius = Math.sqrt(Math.pow(rect.centerX() - rect.left, 2) + Math.pow(rect.centerY() - rect.top, 2));
+            // circle is tangent to edges
+            double radius = rect.centerX() - rect.left;
 
             int extraSnap = (isTrackedObj(view) || !isTracking() ? hitRectBoost : 0);
-            return (pointer.x >= rect.left - extraSnap && pointer.x <= rect.right + extraSnap && pointer.y >= rect.top - extraSnap && pointer.y <= rect.bottom + extraSnap);
+            //return (pointer.x >= rect.left - extraSnap && pointer.x <= rect.right + extraSnap && pointer.y >= rect.top - extraSnap && pointer.y <= rect.bottom + extraSnap);
+            return (Math.sqrt(Math.pow(rect.centerX() - pointer.x, 2) + Math.pow(rect.centerY() - pointer.y, 2)) <= radius + extraSnap);
         }
 
         public static boolean isTracking() {
