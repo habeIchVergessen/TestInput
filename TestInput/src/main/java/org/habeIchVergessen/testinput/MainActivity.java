@@ -7,13 +7,21 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.AnimationDrawable;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
 import android.provider.ContactsContract;
+import android.provider.Settings;
+import android.text.Html;
+import android.text.SpannableString;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,6 +34,7 @@ import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
@@ -67,6 +76,9 @@ public class MainActivity extends Activity {
     private boolean mOptionMenuOpened = false;
     private HashMap<Integer,FloatPoint> mOptionMenuTrack = new HashMap<Integer, FloatPoint>();
 
+    // camera
+    private CameraHelper cameraHelper = null;
+
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -107,16 +119,11 @@ public class MainActivity extends Activity {
         mtfTest = (TextView)findViewById(R.id.tfTest);
         mbTest = findViewById(R.id.bTest);
 
-        Rect mRect = new Rect();
-        mAcceptButton.getHitRect(mRect);
-        Log.d("TestInput", "hitRect: " + mRect);
-        Log.i("TestInput", "onCreate leave");
-
         mbTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                resetPhoneWidgetMakeVisible();
-                setIncomingNumber(mtfTest.getText().toString());
+            resetPhoneWidgetMakeVisible();
+            setIncomingNumber(mtfTest.getText().toString());
             }
         });
 
@@ -132,6 +139,16 @@ public class MainActivity extends Activity {
         menuButtonAnim.start();
 
         torchButton = (ImageView) findViewById(R.id.torchOption);
+
+        Log.i("TestInput", "onCreate leave");
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // release the camera immediately on pause event
+        if (cameraHelper != null)
+            cameraHelper.releaseCamera();
     }
 
     @Override
@@ -179,6 +196,22 @@ public class MainActivity extends Activity {
         Intent sendTextToSpeech = new Intent();
         sendTextToSpeech.setAction("org.durka.hallmonitor.restartDefaultActivity");
         sendBroadcast(sendTextToSpeech);
+    }
+
+    public boolean isSpeakerOn() {
+        AudioManager audioManager = (AudioManager)getSystemService(AUDIO_SERVICE);
+        return audioManager.isSpeakerphoneOn();
+    }
+
+    public void setSpeakerOn(boolean state) {
+        AudioManager audioManager = (AudioManager)getSystemService(AUDIO_SERVICE);
+
+        if (audioManager.isSpeakerphoneOn() != state)
+            audioManager.setSpeakerphoneOn(state);
+    }
+
+    public boolean isAirPlaneMode() {
+        return Settings.Global.getInt(getContentResolver(), Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
     }
 
     /**
@@ -273,6 +306,16 @@ public class MainActivity extends Activity {
         }
     }
 
+    // camera
+    public void sendFireCamera(View view) {
+        if (cameraHelper == null && (cameraHelper = new CameraHelper(this)) != null) {
+            cameraHelper.startPreview();
+            //reset the lock timer to 30 seconds
+            //Functions.Actions.setLockTimer(getApplicationContext(), 30000);
+        }
+    }
+
+
     //toggle the torch
     public void sendToggleTorch(View view) {
         Intent intent = new Intent(TOGGLE_FLASHLIGHT);
@@ -288,8 +331,7 @@ public class MainActivity extends Activity {
     /**
      * phone widget
      */
-    private boolean onTouchEvent_PhoneWidget(MotionEvent motionEvent)
-    {
+    private boolean onTouchEvent_PhoneWidget(MotionEvent motionEvent) {
         float maxSwipe = 150;
         float swipeTolerance = 0.95f;
         int defaultOffset = 10;
@@ -447,8 +489,7 @@ public class MainActivity extends Activity {
         resetPhoneWidgetMakeVisible();
     }
 
-    public void moveCallButton(View button, int offset)
-    {
+    public void moveCallButton(View button, int offset) {
         if (!mAcceptButton.equals(button) && !mRejectButton.equals(button))
             return;
 
@@ -501,6 +542,14 @@ public class MainActivity extends Activity {
         mCallerNumber.setText("");
     }
 
+    public void setRingMode(int ringMode) {
+        AudioManager audioManager = (AudioManager)getSystemService(AUDIO_SERVICE);
+
+        if (ringMode != audioManager.getRingerMode() && (ringMode == AudioManager.RINGER_MODE_NORMAL || ringMode == AudioManager.RINGER_MODE_VIBRATE || ringMode == AudioManager.RINGER_MODE_SILENT)) {
+            audioManager.setRingerMode(ringMode);
+        }
+    }
+
     /**
      * phone widget (end)
      */
@@ -534,8 +583,6 @@ public class MainActivity extends Activity {
         public static boolean pointerInRect(MotionEvent.PointerCoords pointer, View view, int hitRectBoost) {
             Rect rect = new Rect();
             view.getGlobalVisibleRect(rect);
-            // circle through corners
-            //double radius = Math.sqrt(Math.pow(rect.centerX() - rect.left, 2) + Math.pow(rect.centerY() - rect.top, 2));
             // circle is tangent to edges
             double radius = rect.centerX() - rect.left;
 
