@@ -62,6 +62,39 @@
                 android:layout_height="wrap_content"
                 android:layout_column="0"
                 android:layout_columnSpan="6"
+                android:layout_row="4"
+                android:layout_rowSpan="2"
+                android:layout_gravity="center"
+                android:gravity="center|center_vertical|center_horizontal">
+
+                <ImageView
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/call_accept_slide"
+                    android:layout_alignParentEnd="false"
+                    android:background="@drawable/ic_call_accept_slide"
+                    android:layout_gravity="center_vertical"
+                    android:layout_alignParentStart="false"
+                    android:layout_alignParentBottom="false" />
+
+                <ImageView
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/call_reject_slide"
+                    android:layout_alignParentEnd="false"
+                    android:background="@drawable/ic_call_reject_slide"
+                    android:layout_alignParentStart="false"
+                    android:layout_gravity="center_vertical"
+                    android:layout_toEndOf="@id/call_accept_slide"
+                    android:layout_toRightOf="@+id/call_accept_slide" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_column="0"
+                android:layout_columnSpan="6"
                 android:layout_row="2"
                 android:layout_rowSpan="4"
                 android:id="@+id/call_accept_panel">
@@ -95,39 +128,6 @@
                     android:layout_alignParentEnd="true"
                     android:layout_gravity="right"
                     android:layout_marginRight="10dp" />
-            </RelativeLayout>
-
-            <RelativeLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_column="0"
-                android:layout_columnSpan="6"
-                android:layout_row="4"
-                android:layout_rowSpan="2"
-                android:layout_gravity="center"
-                android:gravity="center|center_vertical|center_horizontal">
-
-                <ImageView
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/call_accept_slide"
-                    android:layout_alignParentEnd="false"
-                    android:background="@drawable/ic_call_accept_slide"
-                    android:layout_gravity="center_vertical"
-                    android:layout_alignParentStart="false"
-                    android:layout_alignParentBottom="false" />
-
-                <ImageView
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/call_reject_slide"
-                    android:layout_alignParentEnd="false"
-                    android:background="@drawable/ic_call_reject_slide"
-                    android:layout_alignParentStart="false"
-                    android:layout_gravity="center_vertical"
-                    android:layout_toEndOf="@id/call_accept_slide"
-                    android:layout_toRightOf="@+id/call_accept_slide" />
-
             </RelativeLayout>
 
         </GridLayout>

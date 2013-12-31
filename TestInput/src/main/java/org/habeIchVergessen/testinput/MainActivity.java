@@ -226,6 +226,11 @@ public class MainActivity extends Activity {
         FloatPoint downPoint = null;
         double radius = 0;
 
+        Rect hitBox = new Rect();
+        mMenuWidget.getGlobalVisibleRect(hitBox);
+        final float dX = motionEvent.getX(actionIndex), mX = hitBox.centerX();
+        final float dY = motionEvent.getY(actionIndex), mY = hitBox.centerY();
+
         switch (actionMasked) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
@@ -233,41 +238,23 @@ public class MainActivity extends Activity {
                 if (mOptionMenuTrack.size() > 0)
                     break;
 
-                Rect hitBox = new Rect();
-                mMenuWidget.getGlobalVisibleRect(hitBox);
-
-                final float dX = motionEvent.getX(actionIndex), rX = 50, cX = hitBox.centerX();
-                final float dY = motionEvent.getY(actionIndex), rY = 30, cY = hitBox.centerY();
+                final float rX = 50;
+                final float rY = 30;
 
                 // ellipse
-                if (Math.pow(cX - dX, 2) / Math.pow(rX, 2) + Math.pow(cY - dY, 2)  / Math.pow(rY, 2) <= 1) {
+                if (Math.pow(mX - dX, 2) / Math.pow(rX, 2) + Math.pow(mY - dY, 2)  / Math.pow(rY, 2) <= 1) {
                     mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new FloatPoint(dX, dY));
                     openOptionMenu();
                     Log.d(LOG_TAG, "DOWN|POINTER_DOWN: added " + motionEvent.getPointerId(actionIndex) + " x: " + dX + ", y: " + dY + " #" + mOptionMenuTrack.size());
                 }
                 break;
-//            case MotionEvent.ACTION_MOVE:
-//                if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
-//                    // find ImageView at coordinates
-//                    Rect hitRect = new Rect();
-//                    for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
-//                        View view = mOptionWidgetGrid.getChildAt(idx);
-//                        view.getGlobalVisibleRect(hitRect);
-//                        radius = hitRect.centerX() - hitRect.left;
-////                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
-//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
-//                            view.setBackgroundColor(0x80FFFFFF);
-//                        } else
-//                            view.setBackgroundColor(0x00000000);
-//                    }
-//                }
-//                break;
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_POINTER_UP:
+            case MotionEvent.ACTION_MOVE:
                 if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
-                    mOptionMenuTrack.remove(motionEvent.getPointerId(actionIndex));
-                    closeOptionMenu();
-                    Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size() + ", views: #" + mOptionWidgetGrid.getChildCount());
+                    final double disPoint = Math.sqrt(Math.pow(mX - dX, 2) + Math.pow(mY - dY, 2));
+                    if (disPoint == 0)
+                        break;
+
+                    final double arcPoint = Math.toDegrees(Math.acos((mX - dX) / disPoint));
 
                     // find ImageView at coordinates
                     Rect hitRect = new Rect();
@@ -276,8 +263,46 @@ public class MainActivity extends Activity {
                         view.getGlobalVisibleRect(hitRect);
                         radius = hitRect.centerX() - hitRect.left;
 
+                        final double disCenter =  Math.sqrt(Math.pow(mX - hitRect.centerX(), 2) + Math.pow(mY - hitRect.centerY(), 2));
+                        final double arcCenter = Math.toDegrees(Math.acos((mX - hitRect.centerX()) / disCenter));
+                        final double arcMatch = 360*radius/(disCenter * 2 * Math.PI);
+
 //                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
-                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
+//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
+                        if (disPoint >= disCenter - radius && disPoint <= disCenter + radius && arcPoint >= arcCenter - arcMatch && arcPoint <= arcCenter + arcMatch) {
+                            view.setBackgroundColor(0x80FFFFFF);
+                        } else
+                            view.setBackgroundColor(0x00000000);
+                    }
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:
+                if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
+                    mOptionMenuTrack.remove(motionEvent.getPointerId(actionIndex));
+                    closeOptionMenu();
+                    Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size() + ", views: #" + mOptionWidgetGrid.getChildCount());
+
+                    final double disPoint = Math.sqrt(Math.pow(mX - dX, 2) + Math.pow(mY - dY, 2));
+                    if (disPoint == 0)
+                        break;
+
+                    final double arcPoint = Math.toDegrees(Math.acos((mX - dX) / disPoint));
+
+                    // find ImageView at coordinates
+                    Rect hitRect = new Rect();
+                    for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
+                        View view = mOptionWidgetGrid.getChildAt(idx);
+                        view.getGlobalVisibleRect(hitRect);
+                        radius = hitRect.centerX() - hitRect.left;
+
+                        final double disCenter =  Math.sqrt(Math.pow(mX - hitRect.centerX(), 2) + Math.pow(mY - hitRect.centerY(), 2));
+                        final double arcCenter = Math.toDegrees(Math.acos((mX - hitRect.centerX()) / disCenter));
+                        final double arcMatch = 360*radius/(disCenter * 2 * Math.PI);
+
+//                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
+//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
+                        if (disPoint >= disCenter - radius && disPoint <= disCenter + radius && arcPoint >= arcCenter - arcMatch && arcPoint <= arcCenter + arcMatch) {
                             view.callOnClick();
                             break;
                         }
