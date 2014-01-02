@@ -136,7 +136,7 @@ public CameraHelper(final MainActivity theDefaultActivity) {
 		     mPreview = new CameraPreview(defaultActivity, mCamera);
              
              //Create our Preview view and set it as the content of our activity.
-     	     preview = (RelativeLayout) defaultActivity.findViewById(R.id.default_content);
+     	     preview = (RelativeLayout) defaultActivity.findViewById(R.id.overlay_content_widget);
      	     preview.addView(mPreview);
      	     preview.addView(captureButton);
      	     preview.addView(backButton);

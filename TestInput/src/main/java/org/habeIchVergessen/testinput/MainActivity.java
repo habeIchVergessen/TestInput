@@ -5,13 +5,22 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Picture;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -45,8 +54,8 @@ public class MainActivity extends Activity {
 
     protected final static String LOG_TAG = "TestInput";
 
-    protected GridLayout mOptionWidget;
-    protected GridLayout mOptionWidgetGrid;
+    protected RelativeLayout mOptionWidget;
+    protected RelativeLayout mOptionWidgetGrid;
     protected GridLayout mPhoneWidget;
     protected RelativeLayout mMenuWidget;
     protected TextView mCallerName;
@@ -74,7 +83,7 @@ public class MainActivity extends Activity {
     private int mActivePointerId = -1;
 
     private boolean mOptionMenuOpened = false;
-    private HashMap<Integer,FloatPoint> mOptionMenuTrack = new HashMap<Integer, FloatPoint>();
+    private HashMap<Integer,PointF> mOptionMenuTrack = new HashMap<Integer, PointF>();
 
     // camera
     private CameraHelper cameraHelper = null;
@@ -106,8 +115,8 @@ public class MainActivity extends Activity {
 
         setContentView(R.layout.activity_main);
 
-        mOptionWidget = (GridLayout)findViewById(R.id.option_widget);
-        mOptionWidgetGrid = (GridLayout)findViewById(R.id.option_widget_grid);
+        mOptionWidget = (RelativeLayout)findViewById(R.id.option_widget);
+        mOptionWidgetGrid = (RelativeLayout)findViewById(R.id.option_widget_options);
         mPhoneWidget = (GridLayout)findViewById(R.id.phone_widget);
         mMenuWidget =  (RelativeLayout)findViewById(R.id.menu_widget);
         mCallerName = (TextView)findViewById(R.id.caller_name);
@@ -138,7 +147,7 @@ public class MainActivity extends Activity {
         AnimationDrawable menuButtonAnim = (AnimationDrawable)menuButton.getBackground();
         menuButtonAnim.start();
 
-        torchButton = (ImageView) findViewById(R.id.torchOption);
+        torchButton = (ImageView) findViewById(R.id.option_04);
 
         Log.i("TestInput", "onCreate leave");
     }
@@ -223,7 +232,7 @@ public class MainActivity extends Activity {
         final int actionIndex = motionEvent.getActionIndex();
         final int actionMasked = motionEvent.getActionMasked();
         final int pointerId = actionIndex;
-        FloatPoint downPoint = null;
+        PointF downPoint = null;
         double radius = 0;
 
         Rect hitBox = new Rect();
@@ -243,18 +252,22 @@ public class MainActivity extends Activity {
 
                 // ellipse
                 if (Math.pow(mX - dX, 2) / Math.pow(rX, 2) + Math.pow(mY - dY, 2)  / Math.pow(rY, 2) <= 1) {
-                    mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new FloatPoint(dX, dY));
+                    mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new PointF(dX, dY));
                     openOptionMenu();
                     Log.d(LOG_TAG, "DOWN|POINTER_DOWN: added " + motionEvent.getPointerId(actionIndex) + " x: " + dX + ", y: " + dY + " #" + mOptionMenuTrack.size());
                 }
                 break;
             case MotionEvent.ACTION_MOVE:
                 if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
-                    final double disPoint = Math.sqrt(Math.pow(mX - dX, 2) + Math.pow(mY - dY, 2));
+                    // TODO calc arc's doesn't work properly (until then break here)
+                    if (dY > mY)
+                        break;
+
+                    final double disPoint = Math.sqrt(Math.pow(dX - mX, 2) + Math.pow(dY - mY, 2));
                     if (disPoint == 0)
                         break;
 
-                    final double arcPoint = Math.toDegrees(Math.acos((mX - dX) / disPoint));
+                    final double arcPoint = Math.toDegrees(Math.acos((dX - mX) / disPoint));
 
                     // find ImageView at coordinates
                     Rect hitRect = new Rect();
@@ -263,16 +276,43 @@ public class MainActivity extends Activity {
                         view.getGlobalVisibleRect(hitRect);
                         radius = hitRect.centerX() - hitRect.left;
 
-                        final double disCenter =  Math.sqrt(Math.pow(mX - hitRect.centerX(), 2) + Math.pow(mY - hitRect.centerY(), 2));
-                        final double arcCenter = Math.toDegrees(Math.acos((mX - hitRect.centerX()) / disCenter));
-                        final double arcMatch = 360*radius/(disCenter * 2 * Math.PI);
+                        final double disCenter =  Math.sqrt(Math.pow(hitRect.centerX() - mX, 2) + Math.pow(hitRect.centerY() - mY, 2));
+                        final double arcCenter = Math.toDegrees(Math.acos((hitRect.centerX() - mX) / disCenter));
+                        final double arcMatch = 360 * radius/(disCenter * 2 * Math.PI);
 
 //                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
 //                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
-                        if (disPoint >= disCenter - radius && disPoint <= disCenter + radius && arcPoint >= arcCenter - arcMatch && arcPoint <= arcCenter + arcMatch) {
-                            view.setBackgroundColor(0x80FFFFFF);
+                        if (disPoint > disCenter - radius && disPoint < disCenter + radius && arcPoint > arcCenter - arcMatch && arcPoint < arcCenter + arcMatch) {
+                            Bitmap bmp = Bitmap.createBitmap(mOptionWidgetGrid.getWidth(), mOptionWidgetGrid.getHeight(), Bitmap.Config.ARGB_8888);
+                            Paint paint = new Paint();
+                            paint.setARGB(150, 255, 255, 255);
+                            //paint.setStrokeWidth(5);
+                            paint.setAntiAlias(true);
+                            //paint.setStrokeCap(Paint.Cap.ROUND);
+                            paint.setStyle(Paint.Style.FILL);
+
+                            PointF drawCenter = new PointF(mOptionWidgetGrid.getWidth() / 2, mOptionWidgetGrid.getBottom());
+                            PointF viewCenter = new PointF(view.getLeft() + view.getWidth() / 2, view.getTop() + view.getHeight() / 2);
+                            PointF viewCenterTop = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenter, 0f, (float)view.getHeight() / 2);
+                            PointF viewLeftTop = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenterTop, (float)arcMatch, 12f);
+                            PointF viewRightBottom = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenterTop, (float)-arcMatch, (float)-view.getHeight());
+                            Path path = new Path();
+                            path.moveTo(viewLeftTop.x, viewLeftTop.y);
+                            final float drawRadiusTop = (float)(disCenter + view.getHeight() / 2 + 12);
+                            path.arcTo(new RectF(drawCenter.x - drawRadiusTop, drawCenter.y - drawRadiusTop, drawCenter.x + drawRadiusTop, drawCenter.y + drawRadiusTop), (float)-(arcCenter + arcMatch), (float)arcMatch * 2, true);
+                            path.lineTo(viewRightBottom.x, viewRightBottom.y);
+                            final float drawRadiusBottom = (float)(disCenter - view.getHeight() / 2);
+                            path.arcTo(new RectF(drawCenter.x - drawRadiusBottom, drawCenter.y - drawRadiusBottom, drawCenter.x + drawRadiusBottom, drawCenter.y + drawRadiusBottom), (float) -(arcCenter - arcMatch), (float) -arcMatch * 2, true);
+                            path.lineTo(viewLeftTop.x, viewLeftTop.y);
+
+                            Canvas c = new Canvas(bmp);
+                            c.drawColor(00000000);
+                            c.drawPath(path, paint);
+
+                            mOptionWidgetGrid.setBackground(new BitmapDrawable(getResources(), bmp));
+                            break;
                         } else
-                            view.setBackgroundColor(0x00000000);
+                            mOptionWidgetGrid.setBackgroundColor(0x00000000);
                     }
                 }
                 break;
@@ -280,14 +320,19 @@ public class MainActivity extends Activity {
             case MotionEvent.ACTION_POINTER_UP:
                 if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
                     mOptionMenuTrack.remove(motionEvent.getPointerId(actionIndex));
+                    mOptionWidgetGrid.setBackgroundColor(0x00000000);
                     closeOptionMenu();
                     Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size() + ", views: #" + mOptionWidgetGrid.getChildCount());
 
-                    final double disPoint = Math.sqrt(Math.pow(mX - dX, 2) + Math.pow(mY - dY, 2));
+                    // TODO calc arc's doesn't work properly (until then break here)
+                    if (dY > mY)
+                        break;
+
+                    final double disPoint = Math.sqrt(Math.pow(dX - mX, 2) + Math.pow(dY - mY, 2));
                     if (disPoint == 0)
                         break;
 
-                    final double arcPoint = Math.toDegrees(Math.acos((mX - dX) / disPoint));
+                    final double arcPoint = Math.toDegrees(Math.acos((dX - mX) / disPoint));
 
                     // find ImageView at coordinates
                     Rect hitRect = new Rect();
@@ -296,13 +341,13 @@ public class MainActivity extends Activity {
                         view.getGlobalVisibleRect(hitRect);
                         radius = hitRect.centerX() - hitRect.left;
 
-                        final double disCenter =  Math.sqrt(Math.pow(mX - hitRect.centerX(), 2) + Math.pow(mY - hitRect.centerY(), 2));
-                        final double arcCenter = Math.toDegrees(Math.acos((mX - hitRect.centerX()) / disCenter));
-                        final double arcMatch = 360*radius/(disCenter * 2 * Math.PI);
+                        final double disCenter =  Math.sqrt(Math.pow(hitRect.centerX() - mX, 2) + Math.pow(hitRect.centerY() - mY, 2));
+                        final double arcCenter = Math.toDegrees(Math.acos((hitRect.centerX() - mX) / disCenter));
+                        final double arcMatch = 360 * radius / (disCenter * 2 * Math.PI);
 
 //                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
 //                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
-                        if (disPoint >= disCenter - radius && disPoint <= disCenter + radius && arcPoint >= arcCenter - arcMatch && arcPoint <= arcCenter + arcMatch) {
+                        if (disPoint > disCenter - radius && disPoint < disCenter + radius && arcPoint > arcCenter - arcMatch && arcPoint < arcCenter + arcMatch) {
                             view.callOnClick();
                             break;
                         }
@@ -339,7 +384,6 @@ public class MainActivity extends Activity {
             //Functions.Actions.setLockTimer(getApplicationContext(), 30000);
         }
     }
-
 
     //toggle the torch
     public void sendToggleTorch(View view) {
@@ -647,14 +691,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    public class FloatPoint {
-        private float mX, mY;
-        public FloatPoint(float x, float y) {
-            mX = x;
-            mY = y;
+    public static class OptionMenuHelper {
+        public static PointF movePointOnCircularSegment(PointF center, PointF reference, Float arc, Float offset) {
+            PointF result = new PointF(0, 0);
+            final double radius = Math.sqrt(Math.pow(reference.x - center.x, 2) + Math.pow(reference.y - center.y, 2));
+            final double arcC = Math.toDegrees(Math.acos((reference.x - center.x) / radius));
+            final double factor = (radius + offset) / radius;
+
+            result.x = (float)(center.x + factor * radius * Math.cos(Math.toRadians(arcC + arc)));
+            result.y = (float)(center.y - factor * radius * Math.sin(Math.toRadians(arcC + arc)));
+
+//            Log.d(LOG_TAG, "center: " + center + ", reference: " + reference + ", arc: " + (arcC + arc) + ", result: " + result);
+
+            return result;
         }
 
-        public float getX() { return mX; };
-        public float getY() { return mY; };
+        public static Rect makeRect(PointF point, Float distance) {
+            return new Rect((int)(point.x - distance), (int)(point.y - distance), (int)(point.x + distance), (int)(point.y + distance));
+        }
     }
 }
