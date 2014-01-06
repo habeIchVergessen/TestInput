@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <!-- id's used by dynamically generated view inside OptionOverlay -->
+    <item name="option_overlay_menu" type="id" />
+    <item name="option_overlay_menu_button" type="id" />
+    <item name="option_overlay" type="id" />
+    <!-- menu buttons -->
+    <item name="menu_torch" type="id" />
+    <item name="menu_camera" type="id" />
+    <item name="menu_camera_capture" type="id" />
+    <item name="menu_camera_close" type="id" />
+    <item name="menu_demo" type="id" />
+    <!-- other -->
+    <item name="camera_widget" type="id" />
+    <item name="camera_capture" type="id" />
+    <item name="camera_close" type="id" />
+</resources>

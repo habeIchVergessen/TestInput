@@ -36,6 +36,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
@@ -67,6 +68,8 @@ public class MainActivity extends Activity {
     protected TextView mtfTest;
     protected View mbTest;
 
+    protected OptionOverlay mOptionOverlay = null;
+
     //this action will let us toggle the flashlight
     public static final String TOGGLE_FLASHLIGHT = "net.cactii.flash2.TOGGLE_FLASHLIGHT";
     boolean torchIsOn = false;
@@ -81,9 +84,6 @@ public class MainActivity extends Activity {
     private final static int mRedrawOffset = 10; // move min 10dp before redraw
 
     private int mActivePointerId = -1;
-
-    private boolean mOptionMenuOpened = false;
-    private HashMap<Integer,PointF> mOptionMenuTrack = new HashMap<Integer, PointF>();
 
     // camera
     private CameraHelper cameraHelper = null;
@@ -115,10 +115,7 @@ public class MainActivity extends Activity {
 
         setContentView(R.layout.activity_main);
 
-        mOptionWidget = (RelativeLayout)findViewById(R.id.option_widget);
-        mOptionWidgetGrid = (RelativeLayout)findViewById(R.id.option_widget_options);
         mPhoneWidget = (GridLayout)findViewById(R.id.phone_widget);
-        mMenuWidget =  (RelativeLayout)findViewById(R.id.menu_widget);
         mCallerName = (TextView)findViewById(R.id.caller_name);
         mCallerNumber = (TextView)findViewById(R.id.caller_number);
         mAcceptButton = findViewById(R.id.call_accept_button);
@@ -142,12 +139,50 @@ public class MainActivity extends Activity {
         filter.addAction(Intent.ACTION_HEADSET_PLUG);
         registerReceiver(receiver, filter);
 
-        // animate menu button
-        ImageView menuButton = (ImageView)findViewById(R.id.menu_button);
-        AnimationDrawable menuButtonAnim = (AnimationDrawable)menuButton.getBackground();
-        menuButtonAnim.start();
-
         torchButton = (ImageView) findViewById(R.id.option_04);
+
+        mOptionOverlay = (OptionOverlay)findViewById(R.id.option_overlay_menu);
+        mOptionOverlay.registerOnMenuActionListener(new OptionOverlay.OnMenuActionListener() {
+            @Override
+            public void onMenuAction(OptionOverlay.MenuOption menuOption) {
+                Log.d(LOG_TAG, "onMenuAction: " + getResources().getResourceName(menuOption.getOptionId()));
+                View view;
+                switch (menuOption.getOptionId()) {
+                    case R.id.menu_torch:
+                        sendToggleTorch(menuOption);
+                        break;
+                    case R.id.menu_camera:
+                        sendFireCamera(menuOption);
+                        break;
+                    case R.id.menu_camera_capture:
+                        view = findViewById(R.id.camera_capture);
+                        view.callOnClick();
+                        break;
+                    case R.id.menu_camera_close:
+                        view = findViewById(R.id.camera_close);
+                        view.callOnClick();
+                        break;
+                    case R.id.menu_demo:
+                        break;
+                }
+            }
+
+            @Override
+            public void onMenuOpen() {
+                if (findViewById(R.id.camera_widget) != null)
+                    mOptionOverlay.setupMenuForView(R.id.camera_widget);
+                else
+                    mOptionOverlay.setupMenuForView(R.id.phone_widget);
+            }
+        });
+
+        // register menu
+        // phone widget
+        mOptionOverlay.registerMenuOption(R.id.phone_widget, R.id.menu_torch, R.drawable.ic_appwidget_torch_off);
+        mOptionOverlay.registerMenuOption(R.id.phone_widget, R.id.menu_camera, R.drawable.ic_camera);
+        // camera widget
+        mOptionOverlay.registerMenuOption(R.id.camera_widget, R.id.menu_camera_capture, R.drawable.ic_notification);
+        mOptionOverlay.registerMenuOption(R.id.camera_widget, R.id.menu_camera_close, R.drawable.ic_menu_trash_holo_light);
 
         Log.i("TestInput", "onCreate leave");
     }
@@ -193,9 +228,10 @@ public class MainActivity extends Activity {
     {
         boolean result = true;
 
-        onTouchEvent_OptionWidget(motionEvent);
+        //if (!TouchEventProcessor.isTracking())
+            mOptionOverlay.onTouchEvent_OptionWidget(motionEvent);
 
-        if (!mOptionMenuOpened)
+        if (!mOptionOverlay.isOpen())
             onTouchEvent_PhoneWidget(motionEvent);
 
         return result;
@@ -223,161 +259,9 @@ public class MainActivity extends Activity {
         return Settings.Global.getInt(getContentResolver(), Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
     }
 
-    /**
-     * option menu
-     */
-    private boolean onTouchEvent_OptionWidget(MotionEvent motionEvent) {
-
-        // point handling
-        final int actionIndex = motionEvent.getActionIndex();
-        final int actionMasked = motionEvent.getActionMasked();
-        final int pointerId = actionIndex;
-        PointF downPoint = null;
-        double radius = 0;
-
-        Rect hitBox = new Rect();
-        mMenuWidget.getGlobalVisibleRect(hitBox);
-        final float dX = motionEvent.getX(actionIndex), mX = hitBox.centerX();
-        final float dY = motionEvent.getY(actionIndex), mY = hitBox.centerY();
-
-        switch (actionMasked) {
-            case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_POINTER_DOWN:
-                // just handle 1 event
-                if (mOptionMenuTrack.size() > 0)
-                    break;
-
-                final float rX = 50;
-                final float rY = 30;
-
-                // ellipse
-                if (Math.pow(mX - dX, 2) / Math.pow(rX, 2) + Math.pow(mY - dY, 2)  / Math.pow(rY, 2) <= 1) {
-                    mOptionMenuTrack.put(motionEvent.getPointerId(actionIndex), new PointF(dX, dY));
-                    openOptionMenu();
-                    Log.d(LOG_TAG, "DOWN|POINTER_DOWN: added " + motionEvent.getPointerId(actionIndex) + " x: " + dX + ", y: " + dY + " #" + mOptionMenuTrack.size());
-                }
-                break;
-            case MotionEvent.ACTION_MOVE:
-                if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
-                    // TODO calc arc's doesn't work properly (until then break here)
-                    if (dY > mY)
-                        break;
-
-                    final double disPoint = Math.sqrt(Math.pow(dX - mX, 2) + Math.pow(dY - mY, 2));
-                    if (disPoint == 0)
-                        break;
-
-                    final double arcPoint = Math.toDegrees(Math.acos((dX - mX) / disPoint));
-
-                    // find ImageView at coordinates
-                    Rect hitRect = new Rect();
-                    for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
-                        View view = mOptionWidgetGrid.getChildAt(idx);
-                        view.getGlobalVisibleRect(hitRect);
-                        radius = hitRect.centerX() - hitRect.left;
-
-                        final double disCenter =  Math.sqrt(Math.pow(hitRect.centerX() - mX, 2) + Math.pow(hitRect.centerY() - mY, 2));
-                        final double arcCenter = Math.toDegrees(Math.acos((hitRect.centerX() - mX) / disCenter));
-                        final double arcMatch = 360 * radius/(disCenter * 2 * Math.PI);
-
-//                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
-//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
-                        if (disPoint > disCenter - radius && disPoint < disCenter + radius && arcPoint > arcCenter - arcMatch && arcPoint < arcCenter + arcMatch) {
-                            Bitmap bmp = Bitmap.createBitmap(mOptionWidgetGrid.getWidth(), mOptionWidgetGrid.getHeight(), Bitmap.Config.ARGB_8888);
-                            Paint paint = new Paint();
-                            paint.setARGB(150, 255, 255, 255);
-                            //paint.setStrokeWidth(5);
-                            paint.setAntiAlias(true);
-                            //paint.setStrokeCap(Paint.Cap.ROUND);
-                            paint.setStyle(Paint.Style.FILL);
-
-                            PointF drawCenter = new PointF(mOptionWidgetGrid.getWidth() / 2, mOptionWidgetGrid.getBottom());
-                            PointF viewCenter = new PointF(view.getLeft() + view.getWidth() / 2, view.getTop() + view.getHeight() / 2);
-                            PointF viewCenterTop = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenter, 0f, (float)view.getHeight() / 2);
-                            PointF viewLeftTop = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenterTop, (float)arcMatch, 12f);
-                            PointF viewRightBottom = OptionMenuHelper.movePointOnCircularSegment(drawCenter, viewCenterTop, (float)-arcMatch, (float)-view.getHeight());
-                            Path path = new Path();
-                            path.moveTo(viewLeftTop.x, viewLeftTop.y);
-                            final float drawRadiusTop = (float)(disCenter + view.getHeight() / 2 + 12);
-                            path.arcTo(new RectF(drawCenter.x - drawRadiusTop, drawCenter.y - drawRadiusTop, drawCenter.x + drawRadiusTop, drawCenter.y + drawRadiusTop), (float)-(arcCenter + arcMatch), (float)arcMatch * 2, true);
-                            path.lineTo(viewRightBottom.x, viewRightBottom.y);
-                            final float drawRadiusBottom = (float)(disCenter - view.getHeight() / 2);
-                            path.arcTo(new RectF(drawCenter.x - drawRadiusBottom, drawCenter.y - drawRadiusBottom, drawCenter.x + drawRadiusBottom, drawCenter.y + drawRadiusBottom), (float) -(arcCenter - arcMatch), (float) -arcMatch * 2, true);
-                            path.lineTo(viewLeftTop.x, viewLeftTop.y);
-
-                            Canvas c = new Canvas(bmp);
-                            c.drawColor(00000000);
-                            c.drawPath(path, paint);
-
-                            mOptionWidgetGrid.setBackground(new BitmapDrawable(getResources(), bmp));
-                            break;
-                        } else
-                            mOptionWidgetGrid.setBackgroundColor(0x00000000);
-                    }
-                }
-                break;
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_POINTER_UP:
-                if ((downPoint = mOptionMenuTrack.get(motionEvent.getPointerId(actionIndex))) != null) {
-                    mOptionMenuTrack.remove(motionEvent.getPointerId(actionIndex));
-                    mOptionWidgetGrid.setBackgroundColor(0x00000000);
-                    closeOptionMenu();
-                    Log.d(LOG_TAG, "UP|POINTER_UP: " + motionEvent.getPointerId(actionIndex) + " #" + mOptionMenuTrack.size() + ", views: #" + mOptionWidgetGrid.getChildCount());
-
-                    // TODO calc arc's doesn't work properly (until then break here)
-                    if (dY > mY)
-                        break;
-
-                    final double disPoint = Math.sqrt(Math.pow(dX - mX, 2) + Math.pow(dY - mY, 2));
-                    if (disPoint == 0)
-                        break;
-
-                    final double arcPoint = Math.toDegrees(Math.acos((dX - mX) / disPoint));
-
-                    // find ImageView at coordinates
-                    Rect hitRect = new Rect();
-                    for (int idx=0; idx < mOptionWidgetGrid.getChildCount(); idx++) {
-                        View view = mOptionWidgetGrid.getChildAt(idx);
-                        view.getGlobalVisibleRect(hitRect);
-                        radius = hitRect.centerX() - hitRect.left;
-
-                        final double disCenter =  Math.sqrt(Math.pow(hitRect.centerX() - mX, 2) + Math.pow(hitRect.centerY() - mY, 2));
-                        final double arcCenter = Math.toDegrees(Math.acos((hitRect.centerX() - mX) / disCenter));
-                        final double arcMatch = 360 * radius / (disCenter * 2 * Math.PI);
-
-//                        if (hitRect.contains((int)motionEvent.getX(actionIndex), (int)motionEvent.getY(actionIndex))) {
-//                        if (Math.sqrt(Math.pow(hitRect.centerX() - motionEvent.getX(actionIndex), 2) + Math.pow(hitRect.centerY() - motionEvent.getY(actionIndex), 2)) <= radius) {
-                        if (disPoint > disCenter - radius && disPoint < disCenter + radius && arcPoint > arcCenter - arcMatch && arcPoint < arcCenter + arcMatch) {
-                            view.callOnClick();
-                            break;
-                        }
-                    }
-                }
-            break;
-        }
-
-        return true;
-    }
-
-    private void openOptionMenu() {
-        // just open when no other button is tracked
-        if (!mOptionMenuOpened && mActivePointerId == -1) {
-            Log.d(LOG_TAG + ".openOptionMenu", "here we go");
-            mOptionMenuOpened = true;
-            mOptionWidget.setVisibility((mOptionMenuOpened ? View.VISIBLE : View.INVISIBLE));
-        }
-    }
-
-    private void closeOptionMenu() {
-        if (mOptionMenuOpened) {
-            Log.d(LOG_TAG + ".closeOptionMenu", "here we go");
-            mOptionMenuOpened = false;
-            mOptionWidget.setVisibility((mOptionMenuOpened ? View.VISIBLE : View.INVISIBLE));
-        }
-    }
-
     // camera
-    public void sendFireCamera(View view) {
+//    public void sendFireCamera(View view) {
+    public void sendFireCamera(OptionOverlay.MenuOption menuOption) {
         if (cameraHelper == null && (cameraHelper = new CameraHelper(this)) != null) {
             cameraHelper.startPreview();
             //reset the lock timer to 30 seconds
@@ -386,15 +270,15 @@ public class MainActivity extends Activity {
     }
 
     //toggle the torch
-    public void sendToggleTorch(View view) {
+//    public void sendToggleTorch(View view) {
+    public void sendToggleTorch(OptionOverlay.MenuOption menuOption) {
         Intent intent = new Intent(TOGGLE_FLASHLIGHT);
         intent.putExtra("strobe", false);
         intent.putExtra("period", 100);
         intent.putExtra("bright", false);
         sendBroadcast(intent);
         torchIsOn = !torchIsOn;
-        if (torchIsOn) torchButton.setImageResource(R.drawable.ic_appwidget_torch_on);
-        else torchButton.setImageResource(R.drawable.ic_appwidget_torch_off);
+        menuOption.setImageId((torchIsOn ? R.drawable.ic_appwidget_torch_on : R.drawable.ic_appwidget_torch_off));
     }
 
     /**
@@ -688,26 +572,6 @@ public class MainActivity extends Activity {
 
         public static float getHorizontalDistance(float currentX) {
             return currentX - mTrackStartPoint.x;
-        }
-    }
-
-    public static class OptionMenuHelper {
-        public static PointF movePointOnCircularSegment(PointF center, PointF reference, Float arc, Float offset) {
-            PointF result = new PointF(0, 0);
-            final double radius = Math.sqrt(Math.pow(reference.x - center.x, 2) + Math.pow(reference.y - center.y, 2));
-            final double arcC = Math.toDegrees(Math.acos((reference.x - center.x) / radius));
-            final double factor = (radius + offset) / radius;
-
-            result.x = (float)(center.x + factor * radius * Math.cos(Math.toRadians(arcC + arc)));
-            result.y = (float)(center.y - factor * radius * Math.sin(Math.toRadians(arcC + arc)));
-
-//            Log.d(LOG_TAG, "center: " + center + ", reference: " + reference + ", arc: " + (arcC + arc) + ", result: " + result);
-
-            return result;
-        }
-
-        public static Rect makeRect(PointF point, Float distance) {
-            return new Rect((int)(point.x - distance), (int)(point.y - distance), (int)(point.x + distance), (int)(point.y + distance));
         }
     }
 }

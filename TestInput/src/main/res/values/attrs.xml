@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="OptionOverlay">
+        <attr name="overlayLayout" format="reference" />
+        <attr name="overlayBackgroundColor" format="color" />
+        <attr name="buttonSize" format="integer" />
+        <attr name="enableOptionSnap" format="boolean" />
+    </declare-styleable>
+
+</resources>

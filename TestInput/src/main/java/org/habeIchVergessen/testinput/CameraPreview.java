@@ -20,6 +20,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         super(activity.getApplicationContext());
         mCamera = camera;     
         parentActivity = activity;
+
+        setId(R.id.camera_widget);
         
         // Install a SurfaceHolder.Callback so we get notified when the
         // underlying surface is created and destroyed.

@@ -41,6 +41,7 @@ public CameraHelper(final MainActivity theDefaultActivity) {
 	
     captureButton = new ImageButton(theDefaultActivity.getApplicationContext());
     captureButton.setImageResource(R.drawable.ic_notification);
+    captureButton.setId(R.id.camera_capture);
     
     backButton = new ImageButton(theDefaultActivity.getApplicationContext());
     RelativeLayout.LayoutParams params = 
@@ -49,7 +50,8 @@ public CameraHelper(final MainActivity theDefaultActivity) {
 	params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT, RelativeLayout.TRUE);
 	backButton.setLayoutParams(params);
 	backButton.setImageResource(R.drawable.ic_menu_trash_holo_light);
-    
+    backButton.setId(R.id.camera_close);
+
     Log.d("ch.constructor", "CameraHelper Starting");
 
     final PictureCallback mPicture = new PictureCallback() {
@@ -136,7 +138,7 @@ public CameraHelper(final MainActivity theDefaultActivity) {
 		     mPreview = new CameraPreview(defaultActivity, mCamera);
              
              //Create our Preview view and set it as the content of our activity.
-     	     preview = (RelativeLayout) defaultActivity.findViewById(R.id.overlay_content_widget);
+     	     preview = (RelativeLayout) defaultActivity.findViewById(R.id.default_content);
      	     preview.addView(mPreview);
      	     preview.addView(captureButton);
      	     preview.addView(backButton);
